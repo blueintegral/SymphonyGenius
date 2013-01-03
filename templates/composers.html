@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block body %}
+
+
+
+<div class="container centeredtext songcontainer">
+  <div class="row">
+  <!-- Links to sheet music -->
+
+
+    <div class="span6">
+    <div class="accordion" id="accordion2">
+      {% for composer in songs|groupby('composer') %}
+      <div class="accordion-group">
+        <div class="accordion-heading">
+          <a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion2" href="#collapse{{loop.index}}">
+            <h4 class="composerTitle">{{ composer.grouper }} 
+            <span>{% if composer.list|length == 1 -%}
+                  ({{ composer.list|length }} piece)
+                {%- else -%}
+                    ({{ composer.list|length }} pieces)
+                {%- endif %}</span></h4>
+          </a>
+        </div>
+        <div id="collapse{{loop.index}}" class="accordion-body collapse">
+          <div class="accordion-inner">
+            {% for song in composer.list|sort(attribute='song') %}
+            <div class="span6 lefttext" style="margin-left:0px;">
+              <a  href="id/{{ song['_id'].__str__() }}" >
+                <h4 style="font-weight:normal" class="songTitle">{{ song['song'] }}</h4>
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    </div>
+    <div class="span4" id="site-description">
+      <p style="text-indent:30px;line-height:24px;"> Symphony Genius is a guide to understanding music theory and composition. You can upload your symphony as a MIDI file and convert it into sheet music. Click the lines to learn more or to add your own thoughts. If you find a contribution to be particularly useful, please show some appreciation by upvoting. We hope you enjoy the experience and if you have any comments, please send us an email at <a href="mailto:info@symphonygenius.com">info@symphonygenius.com</a>.</p>
+    </div>
+  </div><!-- / row -->
+</div><!-- container -->
+<footer>
+  <h5>Symphony Genius 2012</h5>
+  <h6>{{ songs|length }} pieces and growing!</h6>
+</footer>
+{% endblock %}
+{% block script %}
+{% endblock %}

@@ -1,0 +1,39 @@
+<!-- Main hero unit for a primary marketing message or call to action -->
+<div class="container">
+  <div class="page-header">
+    <a class="suppressedlink" href="/">
+      <h1 class="title">Symphony Genius</h1>
+    </a>
+         
+    
+    <div class="options pull-left">
+
+    <p><a class="btn btn-primary btn-large" data-toggle="modal" data-backdrop="false" href="#responsive" onclick="javascript:$('#notes').modal('hide');">Add Music</a>
+      <!--Modal html -->
+        <div id="responsive" class="modal hide fade" tabindex="-1" data-width="760">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+          <h3>Upload a MIDI file from <a href="http://www.finalemusic.com/" target="_blank">Finale</a> or <a href="http://www.sibelius.com/" target="_blank">Sibelius</a></h3>
+        </div>
+        <div class="modal-body">
+          <div class="row-fluid">
+            <div class="span12">
+              <h4 id="name">Name of piece: (Required)</h4>
+              <p><input class="span12" type="text" id="song" required="true"></p>
+              <h4 id="person">Name of composer: (Required)</h4>
+              <p><input class="span12" type="text" id="composer" required="true"></p>
+              <h4>Your name (Optional):</h4>
+              <p><input class="span12" id="uploader" type="text"></p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <h4>Note: MIDI conversion is still under development and may not work.</h4>
+          <button type="button" data-dismiss="modal" class="btn">Close</button>
+          <button type="button" id="upload" class="btn btn-primary">Upload MIDI</button>
+        </div>
+        </div>
+      </p>
+    </div>
+  </div>
+</div>

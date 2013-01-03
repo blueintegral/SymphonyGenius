@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block body %}
+  <!-- Links to sheet music -->
+    <div class="container">
+    <div class="row" style="margin-bottom:20px;">
+      <div class="span12">
+        <h2 style="line-height:20px;font-weight:normal;" class="songTitle"> {{ song['composer'] }} - {{ song['song'] }}</h2>
+      </div>
+         <div class="span12" text-align:center>
+        <h5 class="songUploader">Transcribed by: {{ song['uploader'] }}</h5>
+      </div>
+    </div>
+      <div  id="songSVG"></div>
+      <div class="songdetails">
+        <a href="/" class="btn btn-large btn-info">Return Home</a>
+      </div>
+    </div>
+    <!--Modal html -->
+    <div id="notes" class="modal hide fade" tabindex="-1" data-width="760">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3>{{ song['song'] }}</h3>
+      </div>
+      <div class="modal-body" id="comments-body">
+      </div>
+      <div class="modal-body" id="newCommentForm" style="display:none;">
+        <div class="row-fluid new-comment-body">
+            <p>
+              <textarea rows="3" class="span12" id="newComment" placeholder="Enter your thoughts about this piece."></textarea>
+            </p>
+            <p>
+              <input type="text" class="span12" id="commenterName" placeholder="Your name (optional)">
+            </p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="row-fluid">
+          <div class="span4 offset4">
+            <button type="button" class="btn btn-danger btn-block" style="display:none;">Cancel</button>
+            <button type="button" class="btn btn-danger btn-block" id="cancelComment" style="display:none;">Cancel</button>
+          </div>
+          <div class="span4">
+            <button type="button" class="btn btn-success btn-block" id="addAComment">Add Annotation</button>
+            <button type="button" class="btn btn-success btn-block" id="submitComment" data-section="" style="display:none;">Submit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+{% endblock %}
+{% block script %}
+{% if images %}
+<script>
+var commentArray = {{ comments|tojson|safe }},
+    songid = "{{ song['_id'].__str__()|safe }}",
+    commentSections = {};
+
+function updateCommentSections() {
+  commentSections = {};
+  for (var i = 0; i < commentArray.length; i++) {
+    commentArray[i]['index'] = i;
+    if (commentSections[commentArray[i]['section']] === undefined) {
+      commentSections[commentArray[i]['section']] = [commentArray[i]];
+    } else {
+      commentSections[commentArray[i]['section']].push(commentArray[i]);
+    };
+  };
+  $.each(commentSections, function(index, value) { 
+    value.sort(function(a,b) { return b.votes - a.votes } );
+  });
+}
+updateCommentSections();
+
+function getTopComment(section) {
+  var sectionComments = commentSections[section];
+  if (sectionComments !== undefined) {
+    var rankedComs = sectionComments.sort(function(a,b) { return b.votes - a.votes } );
+    return rankedComs[0]['comment'];
+  } else {
+    return "No annotations yet!";
+  }
+}
+
+function appendComment(comment, name, votes, commentid) {
+  if (votes === undefined) {
+    $('#comments-body').append('<div class="row-fluid comment-body"><div class="span12"><h4 class="comment-text">' + comment + '</h4></div></div>');
+  } else if (name === "") {
+    $('#comments-body').append('<div class="row-fluid comment-body"><a href="javascript:void(0)" class="votelink" data-commentid="'+ commentid +'"><div class="span2 upvote"><span class="voteval">' + votes + '</span><i class="icon-caret-up" style="margin:2px 0px 0px 7px"></i></div></a><div class="span10"><h4 class="comment-text">' + comment + '</h4></div></div>');
+  } else {
+    $('#comments-body').append('<div class="row-fluid comment-body"><a href="javascript:void(0)" class="votelink" data-commentid="'+ commentid +'"><div class="span2 upvote"><span class="voteval">' + votes + '</span><i class="icon-caret-up" style="margin:2px 0px 0px 7px"></i></div></a><div class="span10"><h4 class="comment-text">' + comment + '<div class="comment-name"><span class=iconbg><i class="icon-user usericon"></i></span>'+ name +'</div></h4></div></div>');
+  }
+};
+
+function removeComments() {
+  $('#comments-body').children().remove();
+}
+
+function updateComments(section) {
+  removeComments();
+  updateCommentSections();
+  var sectionComments = commentSections[section];
+  if (sectionComments !== undefined) {
+    for (var i = 0; i < sectionComments.length; i++) {
+      appendComment(sectionComments[i]['comment'], sectionComments[i]['name'], sectionComments[i]['votes'], sectionComments[i]['commentid']);
+    };
+  } else {
+    appendComment("Contribute your annotation to this piece and help everyone understand the genius behind the symphony.");
+  }
+  $('#submitComment').attr("data-section", section);
+  $('.votelink').click(function(){
+    commentid = $(this).attr("data-commentid");
+    if(localStorage['votedForPost' + commentid] == 'true') return; // abort if already voted
+    localStorage['votedForPost' + commentid] = 'true';
+    var votes = parseInt($(this).text()) + 1;
+    $(this).children(':first-child').children(':first-child').text(votes);
+    commentData = {"commentid": commentid, "votes": votes};
+    request = $.ajax({
+      url:commentid + "/vote", 
+      type:"POST", 
+      contentType:"application/json", 
+      data:JSON.stringify(commentData),
+      processData:false,
+      dataType:"json"
+    });
+    request.done(function(data) {
+      var updatedComment = commentArray.filter(function(x) { return x['commentid'] == commentid; })[0];
+      updatedComment['votes'] = votes;
+      updateComments(updatedComment['section']);
+      updateSectionNodes();
+    });
+  });
+}
+
+$('#notes').on('hidden', function() {
+  $('#addAComment').show();
+  $('#newCommentForm').hide();
+  $('#submitComment').hide();
+});
+
+$('#addAComment').click(function(){
+  var sectid = $('#submitComment').attr("data-section");
+  if(localStorage['commentedOnSong' + songid + 'section' + sectid] == 'true') return; // abort if already voted
+  localStorage['commentedOnSong' + songid + 'section' + sectid] = 'true';
+  $('#addAComment').hide();
+  $('#newCommentForm').show();
+  $('#newComment').focus().keyup(function(event){
+    if(event.keyCode == 13){
+        $("#submitComment").click();
+    }
+  });
+  $('#commenterName').keyup(function(event){
+    if(event.keyCode == 13){
+        $("#submitComment").click();
+    }
+  });
+  $('#submitComment').show();
+  $('#cancelComment').show();
+});
+
+$('#cancelComment').click(function(){
+  $('#addAComment').show();
+  $('#newCommentForm').hide();
+  $('#submitComment').hide();
+  $('#cancelComment').hide();
+});
+
+$('#submitComment').click(function(){
+  var comment = $('#newComment').val();
+  var commenterName = $('#commenterName').val();
+  var section = $('#submitComment').attr("data-section");
+  var commentData = {'comment':comment, 'section': section, 'votes': 1, 'name': commenterName};
+  appendComment(comment, commenterName, 1);
+  $('#addAComment').show();
+  $('#newComment').val('');
+  $('#commenterName').val('');
+  $('#newCommentForm').hide();
+  $('#submitComment').hide();
+  $('#cancelComment').hide();
+  if (comment.length > 1) {
+    request = $.ajax({url:songid+"/comment",type:"POST",contentType:"application/json",data:JSON.stringify(commentData),processData:false,dataType:"json"});
+    request.done(function(data) {
+      commentArray.push(data['data']);
+      updateComments(data['data']['section']);
+      updateSectionNodes();
+      localStorage['votedForPost' + data['data']['commentid']] = 'true';
+    });
+  }
+});
+
+var pw = {{ sizes['width'] }},
+    ph = {{ sizes['height'] }},
+    images = {{ images|tojson|safe }},
+    totalheight = {{ height }},
+    totalwidth = {{ width }},
+    sizing = 800/totalwidth,
+    offsets = {{ offsets }};
+
+if (images[0]['bars'] !== undefined) {
+  for (var i = 0; i < images.length; i++) {
+    for (var x = 0; x < images[i]['bars'].length; x++) {
+      images[i]['bars'][x][2] = i + "-" + x;
+      images[i]['bars'][x][3] = getTopComment(i + "-" + x);
+    };
+  };
+};
+
+var svg = d3.select("#songSVG").append("svg:svg")
+    .attr("width", (totalwidth * sizing))
+    .attr("height", (totalheight * sizing));
+
+var imageref = svg.selectAll("g")
+    .data(images)
+    .enter()
+    .append("g")
+    .attr("transform", function(d,i) { return 'scale(' + sizing + ') translate(0,' + offsets[i] + ')'; });
+
+var image = imageref.append("svg:image")
+    .attr("xlink:href", function(d) { return '/static/songs/' + d.url; })
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", function(d) { return d.sizes.width; })
+    .attr("height", function(d) { return d.sizes.height; });
+
+if (images[0]['bars'] !== undefined) {
+  var sectionNodes = imageref.selectAll("rect")
+      .data(function(d) { return d.bars; })
+      .enter()
+      .append("rect")
+      .attr("x", 0)
+      .attr("y", function(d,i) { return d[0]; })
+      .attr("width", pw)
+      .attr("height", function(d) { return (d[1] - d[0]); })
+      .attr("data-height", function(d) { return (d[1] - d[0]); })
+      .attr("data-y", function(d) { return d[0]; })
+      .attr("data-section", function(d,i) { return d[2]; })
+      .style("fill", "#00F")
+      .style("fill-opacity", 0)
+      .attr("class", "sect")
+      .attr("original-title", function(d) { return "<div class='tipsy-comment'>"+ d[3] + 
+            "<h4 class='contribute-note'>Click staff to contribute</h4></div>"; })
+      .on("mouseover", function(d) { d3.select(this).style("fill-opacity", 0.3); })
+      .on("mouseout", function() { d3.select(this).style("fill-opacity", 0);})
+      .on("click", function(d) {
+        updateComments(d[2]);
+        $('#notes').modal({backdrop: false},'toggle');
+      });
+
+  $('.sect').tipsy({gravity: 'w', html: true, opacity: 1 });
+};
+
+function updateSectionNodes() {
+  if (images[0]['bars'] !== undefined) {
+    for (var i = 0; i < images.length; i++) {
+      for (var x = 0; x < images[i]['bars'].length; x++) {
+        images[i]['bars'][x][3] = getTopComment(i + "-" + x);
+      };
+    };
+    for (var i = 0; i < sectionNodes.length; i++) {
+      for (var x = 0; x < sectionNodes[i].length; x++) {
+        sectionNodes[i][x].__data__[3] = getTopComment(i + "-" + x);
+        sectionNodes[i][x].setAttribute("original-title", "<div class='tipsy-comment'>"+ sectionNodes[i][x].__data__[3] + 
+            "<h4 class='contribute-note'>Click staff to contribute</h4></div>");
+      };
+    };
+  };
+}
+
+</script>
+{% endif %}
+{% endblock %}
